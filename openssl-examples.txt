@@ -1,3 +1,7 @@
+$ openssl version
+OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)
+
+
 Зашифровать файл алгоритмом aes-256-cbc (ключ должен быть 256 бит, размер блока 128 бит).
 
 1. Сгенерируем 256-битовый ключ.
@@ -37,3 +41,23 @@ SHA256(openssl-encrypt.txt)= 789bc6b017272d71fbbd7f45a232e49a8ff1c7028943dc5c4e7
 SHA256(openssl-encrypt.txt.decrypted)= 789bc6b017272d71fbbd7f45a232e49a8ff1c7028943dc5c4e75453370a07da3
 SHA256(openssl-encrypt.txt.encrypted)= a62fc307dadb3af776ed861130811c1b7004f5457e6dc886c0391f73f1175723
 
+
+
+Вычисление хэш-значения.
+1. Смотрим какие алгоритмы поддерживаются:
+
+$ openssl dgst -list
+Supported digests:
+-blake2b512                -blake2s256                -md4
+-md5                       -md5-sha1                  -ripemd
+-ripemd160                 -rmd160                    -sha1
+-sha224                    -sha256                    -sha3-224
+-sha3-256                  -sha3-384                  -sha3-512
+-sha384                    -sha512                    -sha512-224
+-sha512-256                -shake128                  -shake256
+-ssl3-md5                  -ssl3-sha1                 -whirlpool
+
+2. Вычислим хэш-значение sha3-256:
+
+$ openssl dgst -sha3-256 /etc/defaults/rc.conf 
+SHA3-256(/etc/defaults/rc.conf)= 639bcb6e1fbc123a3a17d59e4f339c8792bd686c9a998a577c9424506aa89862
