@@ -47,23 +47,23 @@ int main(int argc, char *argv[]) {
         size_t key_len;
         if (!OPENSSL_hexstr2buf_ex(NULL, 0, &key_len, key_hex, 0)) {
             ERR_print_errors_fp(stderr);
-            egoto(E0, "Illegal key syntax: \"%s\".\n", key_hex);
+            egoto(E0, "Illegal key syntax: \"%s\".", key_hex);
         }
         if (key_len != sizeof key)
-            egoto(E0, "Wrong key \"%s\", must be %zu hex digits (not %zu).\n",
+            egoto(E0, "Wrong key \"%s\", must be %zu hex digits (not %zu).",
                 key_hex, 2 * sizeof key, key_len);
         OPENSSL_hexstr2buf_ex(key, sizeof key, NULL, key_hex, 0);
     } while (0);
 
     ifp = fopen(in_file, "r");
     if (!ifp)
-        egoto2(E0, errno, "Could not open input file \"%s\".\n", in_file);
+        egoto2(E0, errno, "Could not open input file \"%s\".", in_file);
     ofp = fopen(out_file, "w");
     if (!ofp)
-        egoto2(E0, errno, "Could not open output file \"%s\".\n", out_file);
+        egoto2(E0, errno, "Could not open output file \"%s\".", out_file);
 
     if (encrypt(ifp, ofp, key))
-        egoto(E0, "encrypt() failed");
+        goto E0;
 
     fclose(ofp);
     fclose(ifp);
@@ -97,13 +97,13 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
      */
     if (RAND_bytes(iv, sizeof iv) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Failed to generate initialization vector (IV).\n");
+        egoto(E0, "Failed to generate initialization vector (IV).");
     }
 
     /* 2. Сохраним iv в выходной файл.
      */
     if (fwrite(iv, 1, sizeof iv, ofp) != sizeof iv)
-        egoto2(E0, errno, "Could not write IV to output file.\n");
+        egoto2(E0, errno, "Could not write IV to output file.");
 
     /* 3. Получаем реализацию шифра AES-256-GCM из провайдера.
      *
@@ -127,7 +127,7 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM", NULL);
     if (!cipher) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_CIPHER_fetch(): Failed to get AES-256-GCM cipher.\n");
+        egoto(E0, "EVP_CIPHER_fetch(): Failed to get AES-256-GCM cipher.");
     }
 
     /* 4. Создадим контекст.
@@ -135,7 +135,7 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not allocate EVP_CIPHER_CTX.\n");
+        egoto(E0, "Could not allocate EVP_CIPHER_CTX.");
     }
 
     /* 5. Проинициализируем контекст.
@@ -167,14 +167,14 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
      */
     if (EVP_EncryptInit_ex2(ctx, cipher, key, iv, NULL) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not initialize encription.\n");
+        egoto(E0, "Could not initialize encription.");
     }
 
     for (;;) {
         size_t br = fread(ibuf, 1, sizeof ibuf, ifp);
         if (!br) {
             if (ferror(ifp))
-                egoto2(E0, errno, "Error reading input file.\n");
+                egoto2(E0, errno, "Error reading input file.");
             break;
         }
 
@@ -227,14 +227,14 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
         int be = 0;
         if (EVP_EncryptUpdate(ctx, obuf, &be, ibuf, br) != 1) {
             ERR_print_errors_fp(stderr);
-            egoto(E0, "Could not encrypt data chunk.\n");
+            egoto(E0, "Could not encrypt data chunk.");
         }
 
         unsigned char *obuf_ptr = obuf;
         while (be) {
             size_t bw = fwrite(obuf, 1, be, ofp);
             if (ferror(ofp))
-                egoto2(E0, errno, "Could not write to output file.\n");
+                egoto2(E0, errno, "Could not write to output file.");
             obuf_ptr += bw;
             be -= bw;
         }
@@ -256,12 +256,12 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     int nbytes = 0;
     if (EVP_EncryptFinal(ctx, obuf, &nbytes) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not finalize encryption.\n");
+        egoto(E0, "Could not finalize encryption.");
     }
 
     fwrite(obuf, 1, nbytes, ofp);
     if (ferror(ofp))
-        egoto2(E0, errno, "Could not write to output file.\n");
+        egoto2(E0, errno, "Could not write to output file.");
 
 
     /* int EVP_CIPHER_CTX_get_params(EVP_CIPHER_CTX *ctx, OSSL_PARAM params[]);
@@ -283,12 +283,12 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     };
     if (EVP_CIPHER_CTX_get_params(ctx, params) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not get auth tag GCM.\n");
+        egoto(E0, "Could not get auth tag GCM.");
     }
 
     fwrite(auth_tag, 1, sizeof auth_tag, ofp);
     if (ferror(ofp))
-        egoto2(E0, errno, "Could not write to output file.\n");
+        egoto2(E0, errno, "Could not write to output file.");
     
     EVP_CIPHER_free(cipher);
     EVP_CIPHER_CTX_free(ctx);

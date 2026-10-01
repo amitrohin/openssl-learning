@@ -68,23 +68,23 @@ int main(int argc, char *argv[]) {
         size_t key_len;
         if (!OPENSSL_hexstr2buf_ex(NULL, 0, &key_len, key_hex, 0)) {
             ERR_print_errors_fp(stderr);
-            egoto(E0, "Illegal key syntax: \"%s\".\n", key_hex);
+            egoto(E0, "Illegal key syntax: \"%s\".", key_hex);
         }
         if (key_len != sizeof key)
-            egoto(E0, "Wrong key \"%s\", must be %zu hex digits (not %zu).\n",
+            egoto(E0, "Wrong key \"%s\", must be %zu hex digits (not %zu).",
                 key_hex, 2 * sizeof key, key_len);
         OPENSSL_hexstr2buf_ex(key, sizeof key, NULL, key_hex, 0);
     } while (0);
 
     ifp = fopen(in_file, "r");
     if (!ifp)
-        egoto2(E0, errno, "Could not open input file \"%s\".\n", in_file);
+        egoto2(E0, errno, "Could not open input file \"%s\".", in_file);
     ofp = fopen(out_file, "w");
     if (!ofp)
-        egoto2(E0, errno, "Could not open output file \"%s\".\n", out_file);
+        egoto2(E0, errno, "Could not open output file \"%s\".", out_file);
 
     if (decrypt(ifp, ofp, key))
-        egoto(E0, "encrypt() failed");
+        goto E0;
 
     fclose(ofp);
     fclose(ifp);
@@ -113,8 +113,12 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
 
     /* Прочитаем IV из входного файла.
      */
-    if (fread(iv, 1, sizeof iv, ifp) != sizeof iv)
-        egoto2(E0, errno, "Could not read IV from input file.\n");
+    if (fread(iv, 1, sizeof iv, ifp) != sizeof iv) {
+        if (ferror(ifp))
+            egoto2(E0, errno, "Could not read IV from input file.");
+        else
+            egoto(E0, "Could not read IV from input file.");
+    }
 
     /* Получаем реализацию шифра AES-256-GCM из провайдера.
      *
@@ -138,7 +142,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     cipher = EVP_CIPHER_fetch(NULL, "AES-256-GCM", NULL);
     if (!cipher) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_CIPHER_fetch(): Failed to get AES-256-GCM cipher.\n");
+        egoto(E0, "EVP_CIPHER_fetch(): Failed to get AES-256-GCM cipher.");
     }
 
     /* Создадим контекст.
@@ -146,7 +150,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not allocate EVP_CIPHER_CTX.\n");
+        egoto(E0, "Could not allocate EVP_CIPHER_CTX.");
     }
 
     /* Проинициализируем контекст.
@@ -187,14 +191,14 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
      */
     if (EVP_DecryptInit_ex2(ctx, cipher, key, iv, NULL) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not initialize encription.\n");
+        egoto(E0, "Could not initialize encription.");
     }
 
     struct stat sb;
     if (fstat(fileno(ifp), &sb))
-        egoto2(E0, errno, "Could not stat input file.\n");
+        egoto2(E0, errno, "Could not stat input file.");
     if (sb.st_size < sizeof iv + sizeof auth_tag)
-        egoto(E0, "Input file is too short.\n");
+        egoto(E0, "Input file is too short.");
 
     size_t data_size = sb.st_size - (sizeof iv + sizeof auth_tag);
     while (data_size) {
@@ -204,7 +208,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
         size_t br = fread(ibuf, 1, ibuf_size, ifp);
         if (!br) {
             if (ferror(ifp))
-                egoto2(E0, errno, "Error reading input file.\n");
+                egoto2(E0, errno, "Error reading input file.");
             break;
         }
         data_size -= br;
@@ -219,14 +223,14 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
         int obuf_size = 0;
         if (EVP_DecryptUpdate(ctx, obuf, &obuf_size, ibuf, br) != 1) {
             ERR_print_errors_fp(stderr);
-            egoto(E0, "Could not decrypt data chunk.\n");
+            egoto(E0, "Could not decrypt data chunk.");
         }
 
         unsigned char *obuf_ptr = obuf;
         while (obuf_size) {
             size_t bw = fwrite(obuf, 1, obuf_size, ofp);
             if (ferror(ofp))
-                egoto2(E0, errno, "Could not write to output file.\n");
+                egoto2(E0, errno, "Could not write to output file.");
             obuf_ptr += bw;
             obuf_size -= bw;
         }
@@ -235,7 +239,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     /* После чтения данных идет аутентификационный жетон.
      */
     if (fread(auth_tag, 1, sizeof auth_tag, ifp) != sizeof auth_tag)
-        egoto2(E0, errno, "Could not read authentication tag from input file.\n");
+        egoto2(E0, errno, "Could not read authentication tag from input file.");
 
     /* Добавим аутентификационный жетон в контекст шифра.
      * 
@@ -258,7 +262,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     };
     if (EVP_CIPHER_CTX_set_params(ctx, params) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not set authentivation tag.\n");
+        egoto(E0, "Could not set authentivation tag.");
     }
 
     /* Финализируем расшифрование данных.
@@ -275,12 +279,12 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
     int nbytes = 0;
     if (EVP_DecryptFinal(ctx, obuf, &nbytes) != 1) {
         ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not finalize decryption.\n");
+        egoto(E0, "Could not finalize decryption.");
     }
 
     fwrite(obuf, 1, nbytes, ofp);
     if (ferror(ofp))
-        egoto2(E0, errno, "Could not write to output file.\n");
+        egoto2(E0, errno, "Could not write to output file.");
     
     EVP_CIPHER_free(cipher);
     EVP_CIPHER_CTX_free(ctx);
