@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-PROGS := encrypt
+PROGS := encrypt decrypt
 
 CFLAGS ?= -g -O0 -pipe
 CXXFLAGS ?= $(CFLAGS)
