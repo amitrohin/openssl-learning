@@ -161,3 +161,248 @@ D0:3D:31:A1:A2:2A:F6:68:99:B3:02:22:60:3B:D7:21:5B:15:5B:80:2B:85:33:36:E6:3B:AB
 интерпретации символов $ оболочкой. Другой метод задания специальных символов –
 передать пароль в шестнадцатеричном виде с по мощью аргумента -kdfopt hexpass:
 вместо -kdfopt pass:.
+
+
+
+АСИММЕТРИЧНОЕ ШИФРОВАНИЕ.
+
+Можно попробовать оценить производительность rsa.
+~$ openssl speed rsa
+[!] rsa не использует расширения cpu aesni.
+
+А вот aes-gcm вроде как отлично ложится на это расширение.
+
+	~$ openssl speed -elapsed -evp aes-128-gcm
+	You have chosen to measure elapsed time instead of user CPU time.
+	Doing AES-128-GCM ops for 3s on 16 size blocks: 12795756 AES-128-GCM ops in 3.07s
+	Doing AES-128-GCM ops for 3s on 64 size blocks: 13244902 AES-128-GCM ops in 3.00s
+	Doing AES-128-GCM ops for 3s on 256 size blocks: 11272922 AES-128-GCM ops in 3.05s
+	Doing AES-128-GCM ops for 3s on 1024 size blocks: 6499013 AES-128-GCM ops in 3.01s
+	Doing AES-128-GCM ops for 3s on 8192 size blocks: 1438907 AES-128-GCM ops in 3.02s
+	Doing AES-128-GCM ops for 3s on 16384 size blocks: 754347 AES-128-GCM ops in 3.00s
+	version: 3.5.7
+	built on: reproducible build, date unspecified
+	options: bn(64,64)
+	compiler: clang
+	CPUINFO: OPENSSL_ia32cap=0x7ffaf3bfffebffff:0x00000000000027ab:0x000000009c000600:0x0000000000000000:0x0000000000000000
+	The 'numbers' are in 1000s of bytes per second processed.
+	type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+	AES-128-GCM      66681.19k   282557.91k   944734.29k  2212567.88k  3898716.66k  4119740.42k
+
+openssl автоматически определяет доступность aesni и это как-то отражено в OPENSSL_ia32cap.
+
+[!] deepseek подсказал, как можно провести тот же самый тест, запретив openssl
+    использовать aesni.
+
+	$ OPENSSL_ia32cap="~0x200000200000000" openssl speed -elapsed -evp aes-128-gcm
+	You have chosen to measure elapsed time instead of user CPU time.
+	Doing AES-128-GCM ops for 3s on 16 size blocks: 5613186 AES-128-GCM ops in 3.00s
+	Doing AES-128-GCM ops for 3s on 64 size blocks: 3701751 AES-128-GCM ops in 3.00s
+	Doing AES-128-GCM ops for 3s on 256 size blocks: 2532164 AES-128-GCM ops in 3.00s
+	Doing AES-128-GCM ops for 3s on 1024 size blocks: 869570 AES-128-GCM ops in 3.00s
+	Doing AES-128-GCM ops for 3s on 8192 size blocks: 121141 AES-128-GCM ops in 3.01s
+	Doing AES-128-GCM ops for 3s on 16384 size blocks: 60989 AES-128-GCM ops in 3.00s
+	version: 3.5.7
+	built on: reproducible build, date unspecified
+	options: bn(64,64)
+	compiler: clang
+	CPUINFO: OPENSSL_ia32cap=0x7dfaf3bdffebffff:0x0000000000000000:0x0000000000000000:0x0000000000000000:0x0000000000000000 env:~0x200000200000000
+	The 'numbers' are in 1000s of bytes per second processed.
+	type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+	AES-128-GCM      29936.99k    78970.69k   216077.99k   296813.23k   329936.48k   333081.26k
+
+    Видно, что ускорение прям очень существенное и растет с размером блока/данных.
+
+
+
+ГЕНЕРИРОВАНИЕ ПАРЫ КЛЮЧЕЙ RSA.
+
+~$ openssl genpkey -algorithm rsa -pkeyopt rsa_keygen_bits:4096 -out rsa_keypair.pem
+
+[!] PEM - Privacy Enhanced Mail. Внутри данные в формате DER - Distinguished
+    Encoding Rules.
+
+Посмотреть содержимое можно командой:
+~$ openssl pkey -in rsa_keypair.pem -noout -text
+
+Видно, что внутри пара ключей - приватный и публичный, хотя pem-файл выглядит
+заголовком 
+-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+в нем есть вся информация о обоих частях ключа. Чтобы извлечь публичный ключ,
+дабы передать его например другой стороне, нужно выполнить:
+
+~$ openssl pkey -in rsa_keypair.pem -pubout -out rsa_public_key.pem
+
+Посмотреть файл с открытым ключем можно так:
+
+~$ openssl pkey -pubin -in rsa_public_key.pem -noout -text 
+Public-Key: (4096 bit)
+Modulus:
+    00:d6:a1:e6:fc:1d:81:8d:2b:c3:52:78:a9:5c:cd:
+    64:00:d4:6e:62:42:18:eb:b9:cd:02:c7:30:8a:d1:
+    a5:91:d3:ba:69:9d:0a:0c:24:cd:5f:b1:ea:7b:7c:
+    73:05:0a:86:79:87:9a:76:78:df:a6:56:3a:eb:f4:
+    5e:a4:86:a1:d2:a6:57:11:2d:6e:e1:ea:cf:b0:6f:
+    e7:48:1b:db:e7:10:52:37:48:bb:99:ca:c2:3f:00:
+    a9:b2:6d:be:cb:81:58:44:a7:ac:cf:73:cd:6a:89:
+    2f:a1:08:24:e8:c9:e6:73:e2:08:6c:8a:41:d8:cd:
+    18:4b:59:42:95:59:4d:6e:d5:89:2d:39:08:fa:28:
+    7e:9e:8c:4d:a8:93:ad:c3:5f:23:91:ff:82:8f:1e:
+    21:73:02:ae:45:d4:bc:12:ed:78:d3:50:46:48:1a:
+    90:c6:4e:34:2d:74:07:ba:22:31:8b:24:47:3b:8b:
+    2d:ed:6c:23:57:8e:6b:c6:c2:57:59:f4:31:17:ba:
+    a3:8b:a6:ab:6f:a6:d2:65:92:36:d0:05:c4:c6:d4:
+    fb:04:a1:08:72:e4:b7:2c:3e:5f:a8:bd:0f:eb:21:
+    99:53:f4:fb:77:b8:95:4f:71:49:c3:a0:e9:e2:bc:
+    ba:e0:e8:a2:f4:a2:4a:2b:16:22:ba:0a:96:2e:7f:
+    79:f8:fd:c4:53:59:9f:9a:b1:1e:e0:a4:94:19:69:
+    52:af:41:5e:60:85:c8:ad:a4:b3:97:78:25:0e:0f:
+    ea:fc:40:f3:02:e6:88:74:c1:68:b5:21:be:77:1f:
+    bb:b8:4c:65:04:f3:23:6d:34:6c:ba:23:9c:e6:6e:
+    2c:13:c7:72:ad:fd:23:be:3c:bd:7a:7c:6d:e7:1e:
+    a6:13:c2:e3:8d:14:5e:dc:f0:aa:d1:66:fe:9e:51:
+    4e:ea:b6:70:9f:f3:33:d8:1f:8f:f1:50:74:f9:87:
+    c4:12:6b:1a:53:11:f7:3f:4c:36:33:3e:50:f9:c2:
+    9a:30:9c:2a:50:a6:35:ef:1d:77:91:8c:21:96:26:
+    1e:73:d1:de:08:35:79:05:78:a2:33:10:d0:37:cf:
+    b8:06:94:aa:88:bf:bd:35:7f:ec:50:e4:02:12:b4:
+    bb:d3:72:e3:7f:b0:e2:6f:68:19:64:9b:f2:5d:31:
+    5f:c9:fe:6b:43:b2:04:01:f9:f0:4b:21:43:2a:01:
+    da:e4:15:36:cc:79:76:a7:79:73:f4:ac:19:f9:b6:
+    d5:6f:5c:bf:9d:38:22:4d:e6:39:f8:90:b4:c1:88:
+    ec:39:c1:7c:5f:5f:aa:01:c5:8a:d6:52:73:d7:1a:
+    15:1d:09:90:46:0a:f2:44:11:0f:be:46:d9:43:8a:
+    7f:c3:d3
+Exponent: 65537 (0x10001)
+
+[!] Обратите внимание на флаг -pubin. Так мы указываем, что подкоманда
+openssl pkey должна рассматривать вход как открытый ключ, а не как пару
+ключей.
+
+
+
+ШИФРОВАНИЕ И РАСШИФРОВАНИЕ С ПОМОЩЬЮ RSA В КОМАНДНОЙ СТРОКЕ.
+
+man openssl-pkeyutl
+
+RSA обычно применяется для шифрования сеансового ключа, который затем
+используется для шифрования полезных данных.
+
+Сгенерируем 256битовый сеансовый ключ:
+~$ openssl rand -out session_key.bin 32
+
+Воспользуемся подкомандой openssl pkeyutl с нашим открытым ключом RSA для
+шифрования сеансового ключа:
+
+~$ openssl pkeyutl \
+	-encrypt \
+	-in session_key.bin \
+	-out session_key.bin.encrypted \
+	-pubin \
+	-inkey rsa_public_key.pem \
+	-pkeyopt rsa_padding_mode:oaep \
+	-pkeyopt rsa_oaep_md:sha256 \
+	-pkeyopt rsa_mgf1_md:sha256
+
+Обратите внимание на параметр -pkeyopt rsa_padding_mode:oaep. Он оз начает, что
+при RSAшифровании нужно использовать оптимальное до- полнение асимметричного
+шифрования (Optimal Asymmetric Encryption Padding – OAEP), определенное в
+стандарте PKCS #1 v2.0. Настоятельно ре комендуется использовать именно этот
+тип дополнения, потому что он счи тается самым стойким. Дополнение типа PKCS #1
+v1.5 может сделать ваш шифртекст уязвимым для атаки с оракулом дополнения
+Блейхенбахера.
+
+Посмотрим на созданные нами файлы:
+~$ cksum session_key.bin*
+477920880 32 session_key.bin
+550986498 512 session_key.bin.encrypted
+
+Отметим, что длина входного сеансового ключа равна всего 32 байта (256 бит), но
+в зашифрованном виде он занимает уже 512 байт (4096 бит), поскольку размер
+блока выходного шифртекста RSA равен длине ключа.
+
+Попробуйте зашифровать сеансовый ключ несколько раз и убедитесь, что размер
+зашифрованного файла всегда один и тот же, но контрольная сумма всякий раз
+разная. Хотя само RSA шифрование детерминировано, допол нение OAEP таковым не
+является, в результате чего шифртекст получается недетерминированным.
+
+
+OAEP vs. PKCS#1 v1.5
+
+Характеристика	RSA_PKCS1_PADDING (v1.5)	RSA_PKCS1_OAEP_PADDING (OAEP)
+---------------+-------------------------------+------------------------------------
+Безопасность	Считается устаревшим,		Доказанно безопасен, рекомендуется
+		подвержен атакам.		для новых приложений.
+---------------+-------------------------------+------------------------------------
+Макс. размер	RSA_size - 11 байт		RSA_size - 42 байт для SHA-1
+сообщения					RSA_size - 66 байт для SHA-256
+---------------+-------------------------------+------------------------------------
+Случайность	Есть, но менее надёжная		Криптографически стойкая случайность
+
+Максимальный размер сообщения для RSA-OAEP считается так:
+	max_message_len = k - 2 * hLen - 2,
+где
+  k     — размер модуля RSA в байтах (RSA_size, например, 256 для 2048 бит);
+  hLen  — длина хеша, используемого в OAEP (в байтах);
+  2     — это один байт 0x00 в начале и один байт 0x01 — разделитель перед
+          сообщением.
+
+RSA4096_size = RSA4096_bits (4096 бит) / 8 бит = 512 байт
+sha256_hlen = 256 бит / 8 бит = 32 байта
+max_message_len = 512 - 2 * 32 - 2 = 512 - 66 = 446 байт
+
+Мы успешно зашифровали небольшой файл. А что, если попытаться за шифровать файл
+побольше? Попробуем. Сначала сгенерируем файл нужного размера:
+
+$ seq 20000 >somefile.txt
+
+Получился файл примерно на 100 КБ. Зашифруем его:
+
+~$ openssl pkeyutl \
+	-encrypt \
+	-in somefile.txt \
+	-out somefile.txt.encrypted \
+	-pubin \
+	-inkey rsa_public_key.pem \
+	-pkeyopt rsa_padding_mode:oaep
+Public Key operation error
+C011FAE8677F0000:error:0200006E:
+rsa routines:ossl_rsa_padding_add_PKCS1_OAEP_mgf1_ex:
+data too large for key size:crypto/rsa/rsa_oaep.c:87:
+
+Мы получили ошибку, означающую, что входные данные слишком велики для ключа
+такого размера. Дело в том, что RSA не умеет шифровать данные длиннее ключа за
+одну операцию. А если используется дополнение, то максимально допустимая длина
+открытого текста еще меньше. При использовании дополнения типа OAEP
+максимальная длина входных данных равна длине ключа минус 42 (в нашем случае
+4096 – 42 = 4054 байта). Если нужно зашифровать данные большей длины, то
+придется использовать симметричный сеансовый ключ.
+
+Настало время расшифровать то, что мы зашифровали, и сравнить с ори гиналом.
+Для расшифрования нужно передать openssl pkeyutl пару ключей, а не просто
+открытый ключ:
+
+~$ openssl pkeyutl \
+	-decrypt \
+	-in session_key.bin.encrypted \
+	-out session_key.bin.decrypted \
+	-inkey rsa_keypair.pem \
+	-pkeyopt rsa_padding_mode:oaep \
+	-pkeyopt rsa_oaep_md:sha256 \
+	-pkeyopt rsa_mgf1_md:sha256
+
+Проверим контрольную сумму:
+
+~$ cksum session_key.bin*
+477920880 32 session_key.bin
+477920880 32 session_key.bin.decrypted
+550986498 512 session_key.bin.encrypted
+
+Как видим, размеры и контрольные суммы файлов session_key.bin и
+session_key.bin.decrypted одинаковы, т. е. расшифрованный файл совпадает с
+исходным. Замечательно, что расшифрование всегда детерминировано!
+
+
+
