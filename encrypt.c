@@ -279,7 +279,7 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
             .data_size = sizeof auth_tag,
             .return_size = 0
         },
-        { NULL, 0, NULL, 0, 0 }
+        OSSL_PARAM_END      /* то же самое, что { NULL, 0, NULL, 0, 0 } */
     };
     if (EVP_CIPHER_CTX_get_params(ctx, params) != 1) {
         ERR_print_errors_fp(stderr);
