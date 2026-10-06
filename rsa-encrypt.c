@@ -64,17 +64,13 @@ int main(int argc, char *argv[]) {
                 pubkey_pem);
         pkey = PEM_read_PUBKEY(fp, NULL, NULL, NULL);
         fclose(fp);
-        if (!pkey) {
-            ERR_print_errors_fp(stderr);
-            egoto(E0, "PEM_read_PUBKEY(): %s: Failed.", pubkey_pem);
-        }
+        if (!pkey)
+            ossl_egoto(E0, "PEM_read_PUBKEY(): %s", pubkey_pem);
     } while (0);
 
     ctx = EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
-    if (!ctx) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_PKEY_CTX_new_from_pkey() failed.");
-    }
+    if (!ctx)
+        ossl_egoto(E0, "EVP_PKEY_CTX_new_from_pkey() failed.");
 
     /* man provider-asym_cipher */
     int padding = RSA_PKCS1_OAEP_PADDING;
@@ -107,10 +103,8 @@ int main(int argc, char *argv[]) {
         },
         OSSL_PARAM_END,
     };
-    if (EVP_PKEY_encrypt_init_ex(ctx, params) != 1) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_PKEY_encrypt_init_ex() failed.");
-    }
+    if (EVP_PKEY_encrypt_init_ex(ctx, params) != 1)
+        ossl_egoto(E0, "EVP_PKEY_encrypt_init_ex()");
 
     int rsa_size = EVP_PKEY_get_size(pkey);
     int rsa_bits = EVP_PKEY_get_bits(pkey);
@@ -126,10 +120,8 @@ int main(int argc, char *argv[]) {
     do {
         EVP_MD const *md;
         /* [!] md не нужно освобождать */
-        if (EVP_PKEY_CTX_get_rsa_oaep_md(ctx, &md) != 1) {
-            ERR_print_errors_fp(stderr);
-            egoto(E0, "EVP_PKEY_CTX_get_rsa_oaep_md() failed");
-        }
+        if (EVP_PKEY_CTX_get_rsa_oaep_md(ctx, &md) != 1)
+            ossl_egoto(E0, "EVP_PKEY_CTX_get_rsa_oaep_md()");
         hlen = EVP_MD_get_size(md);
     } while (0);
     
@@ -162,10 +154,8 @@ int main(int argc, char *argv[]) {
 
     size_t rsa_len = rsa_size;
 
-    if (EVP_PKEY_encrypt(ctx, rsa_buf, &rsa_len, msg, msg_size) != 1) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_PKEY_encrypt() failed.");
-    }
+    if (EVP_PKEY_encrypt(ctx, rsa_buf, &rsa_len, msg, msg_size) != 1)
+        ossl_egoto(E0, "EVP_PKEY_encrypt()");
     assert(rsa_len == rsa_size);
 
     fwrite(rsa_buf, 1, rsa_len, ofp);

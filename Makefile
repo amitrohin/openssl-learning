@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-PROGS := encrypt decrypt digest hmac kdf rsa-encrypt
+PROGS := encrypt decrypt digest hmac kdf rsa-encrypt rsa-decrypt
 
 CFLAGS ?= -g -O0 -pipe
 CXXFLAGS ?= $(CFLAGS)
