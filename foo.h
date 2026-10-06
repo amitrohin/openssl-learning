@@ -26,38 +26,49 @@
 #define roundup2_(x, y, y_)     ({ __auto_type y_ = (y) - 1; ((x) + y_) & ~y_; })
 #define roundup2(x, y)          roundup2_(x, y, AUTONAME)
 
-#define log_(errno_, msgfmt, ...) \
+#define log_printf(fmt, ...)    fprintf(stderr, fmt, ##__VA_ARGS__)
+#define log_(fmt, ...)          log_printf("%s(),%d: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__)
+
+#define log(fmt, ...)           log_(fmt, ##__VA_ARGS__)
+
+#define elog(fmt, ...)          log_(fmt, ##__VA_ARGS__)
+#define elog2(e, fmt, ...)      elog(fmt ": %s (errno: %d).", ##__VA_ARGS__, strerror(e), e)
+
+#define egoto(L, fmt, ...)      do { elog(fmt, ##__VA_ARGS__); goto L; } while (0) 
+#define egoto2(L, e, fmt, ...)  do { elog2(e, fmt, ##__VA_ARGS__); goto L; } while (0) 
+
+#define eret(code, fmt, ...)    do { elog(fmt, ##__VA_ARGS__); return (code); } while (0) 
+
+#define eret2_(code, e, e_, fmt, ...) \
+    do { elog2(e_, fmt, ##__VA_ARGS__); return (code); } while (0) 
+#define eret2(code, e, fmt, ...) \
+    eret2_(code, e, AUTONAME, fmt, ##__VA_ARGS__)
+
+
+#define ossl_elog_(e_, file_, line_, func_, data_, flags_, libname_, reason_, fmt, ...) \
     do { \
-        int errno_ = errno; \
-        fprintf(stderr, "%s(),%d: " msgfmt "\n", \
-            __func__, __LINE__, ##__VA_ARGS__); \
-        errno = errno_; \
-    } while (0) 
+        unsigned long e_; \
+        char const *libname_, *reason_, *file_, *data_, *func_; \
+        int line_, flags_, lib_id_, reason_id_, fatal_; \
+        \
+        e_ = ERR_get_error_all(&file_, &line_, &func_, &data_, &flags_); \
+        if (!e_) \
+            break; \
+        libname_ = ERR_lib_error_string(e_); \
+        reason_ = ERR_reason_error_string(e_); \
+        lib_id_ = ERR_GET_LIB(e_); \
+        reason_id_ = ERR_GET_REASON(e_); \
+        fatal_ = ERR_FATAL_ERROR(e_); \
+        if (flags_ & ERR_TXT_STRING) \
+            elog(fmt ": %s:%d: %s(): err=0x%lx (lib=0x%x, reason=0x%x, fatal=%d), libname=\"%s\", reason=\"%s\", data=\"%s\"", \
+                ##__VA_ARGS__, file_, line_, func_, e_, lib_id_, reason_id_, fatal_, libname_, reason_, data_); \
+        else \
+            elog(fmt ": %s:%d: %s(): err=0x%lx (lib=0x%x, reason=0x%x, fatal=%d), libname=%s, reason=%s", \
+                ##__VA_ARGS__, file_, line_, func_, e_, lib_id_, reason_id_, fatal_, libname_, reason_); \
+    } while (1)
+#define ossl_elog(fmt, ...)         ossl_elog_(AUTONAME, AUTONAME, AUTONAME, AUTONAME, AUTONAME, AUTONAME, AUTONAME, AUTONAME, fmt, ##__VA_ARGS__)
 
-#define log(msgfmt, ...) \
-    log_(AUTONAME, msgfmt, ##__VA_ARGS__)
-
-#define elog(msgfmt, ...) \
-    log_(AUTONAME, msgfmt, ##__VA_ARGS__)
-#define elog2(e, msgfmt, ...) \
-    log_(AUTONAME, msgfmt ": %s (errno: %d).", \
-        ##__VA_ARGS__, strerror(e), e)
-
-#define egoto(L, msgfmt, ...) \
-    do { elog(msgfmt, ##__VA_ARGS__); goto L; } while (0) 
-#define egoto2(L, e, msgfmt, ...) \
-    do { elog2(e, msgfmt, ##__VA_ARGS__); goto L; } while (0) 
-
-#define eret(code, msgfmt, ...) \
-    do { elog(msgfmt, ##__VA_ARGS__); return (code); } while (0) 
-#define eret2_(code, e, e_, msgfmt, ...) \
-    do { \
-        int e_ = (e); \
-        elog2(e_, msgfmt, ##__VA_ARGS__); \
-        errno = e_; \
-        return (code); \
-    } while (0) 
-#define eret2(code, e, msgfmt, ...) \
-    eret2_(code, e, AUTONAME, msgfmt, ##__VA_ARGS__)
+#define ossl_egoto(L, fmt, ...)     do { ossl_elog(fmt, ##__VA_ARGS__); goto L; } while (0)
+#define ossl_eret(code, fmt, ...)   do { ossl_elog(fmt, ##__VA_ARGS__); return (code); } while (0) 
 
 #endif
