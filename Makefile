@@ -53,11 +53,11 @@ $(strip
 		$(#info DEPS.$p = $(value DEPS.$p))
 		$(eval DEPS += $(DEPS.$p))
 
-		$(if $(CFLAGS.$p),,$(eval CFLAGS.$p = $$(CFLAGS)))
-		$(if $(CXXFLAGS.$p),,$(eval CXXFLAGS.$p = $$(CXXFLAGS)))
-		$(if $(CPPFLAGS.$p),,$(eval CPPFLAGS.$p = $$(CPPFLAGS)))
-		$(if $(LDFLAGS.$p),,$(eval LDFLAGS.$p = $$(LDFLAGS)))
-		$(if $(LDLIBS.$p),,$(eval LDLIBS.$p = $$(LDLIBS)))
+		$(eval CFLAGS.$p = $(CFLAGS) $(CFLAGS.$p))
+		$(eval CXXFLAGS.$p = $(CXXFLAGS) $(CXXFLAGS.$p))
+		$(eval CPPFLAGS.$p = $(CPPFLAGS) $(CPPFLAGS.$p))
+		$(eval LDFLAGS.$p = $(LDFLAGS) $(LDFLAGS.$p))
+		$(eval LDLIBS.$p = $(LDLIBS) $(LDLIBS.$p))
 
 		$(if $(CC.$p),,$(eval CC.$p = $(CC)))
 		$(#info CC.$p = $(CC.$p))
@@ -75,9 +75,9 @@ $(strip
 		$(#info LD.$p = $(LD.$p))
 
 		$(foreach s,$(SRCS.$p),
-			$(if $(CFLAGS.$p.$s),,$(eval CFLAGS.$p.$s = $$(CFLAGS.$p)))
-			$(if $(CXXFLAGS.$p.$s),,$(eval CXXFLAGS.$p.$s = $$(CXXFLAGS.$p)))
-			$(if $(CPPFLAGS.$p.$s),,$(eval CPPFLAGS.$p.$s = $$(CPPFLAGS.$p)))
+			$(eval CFLAGS.$p.$s = $(CFLAGS.$p) $(CFLAGS.$p.$s))
+			$(eval CXXFLAGS.$p.$s = $(CXXFLAGS.$p) $(CXXFLAGS.$p.$s))
+			$(eval CPPFLAGS.$p.$s = $(CPPFLAGS.$p) $(CPPFLAGS.$p.$s))
 			$(if $(filter %.c,$s),
 				$(if $(CC.$p.$s),,$(eval CC.$p.$s = $(CC.$p)))
 				$(eval COMPILE.$p.$s = $$(CC.$p.$s) -c $$(CFLAGS.$p.$s))
