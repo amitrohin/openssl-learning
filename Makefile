@@ -1,6 +1,7 @@
 .SUFFIXES:
 
 PROGS := encrypt decrypt digest hmac kdf rsa-encrypt rsa-decrypt
+SRCS += foo.c
 
 CFLAGS ?= -g -O0 -pipe
 CXXFLAGS ?= $(CFLAGS)
@@ -41,9 +42,10 @@ $(strip
 
 	$(foreach p,$(PROGS),
 		$(if $(SRCS.$p),,$(eval SRCS.$p := $(wildcard $p.c $p.cc)))
+		$(eval SRCS.$p += $(SRCS))
 		$(#info SRCS.$p = $(value SRCS.$p))
 
-		$(eval OBJS.$p += $(addprefix $(OBJDIR)/,$(addsuffix .o,$(SRCS.$p))))
+		$(eval OBJS.$p += $(addprefix $(OBJDIR)/$p.,$(addsuffix .o,$(SRCS.$p))))
 		$(#info OBJS.$p = $(value OBJS.$p))
 		$(eval OBJS += $(OBJS.$p))
 
@@ -73,19 +75,19 @@ $(strip
 		$(#info LD.$p = $(LD.$p))
 
 		$(foreach s,$(SRCS.$p),
-			$(if $(CFLAGS.$s),,$(eval CFLAGS.$s = $$(CFLAGS.$p)))
-			$(if $(CXXFLAGS.$s),,$(eval CXXFLAGS.$s = $$(CXXFLAGS.$p)))
-			$(if $(CPPFLAGS.$s),,$(eval CPPFLAGS.$s = $$(CPPFLAGS.$p)))
+			$(if $(CFLAGS.$p.$s),,$(eval CFLAGS.$p.$s = $$(CFLAGS.$p)))
+			$(if $(CXXFLAGS.$p.$s),,$(eval CXXFLAGS.$p.$s = $$(CXXFLAGS.$p)))
+			$(if $(CPPFLAGS.$p.$s),,$(eval CPPFLAGS.$p.$s = $$(CPPFLAGS.$p)))
 			$(if $(filter %.c,$s),
-				$(if $(CC.$s),,$(eval CC.$s = $(CC.$p)))
-				$(eval COMPILE.$s = $$(CC.$s) -c $$(CFLAGS.$s))
+				$(if $(CC.$p.$s),,$(eval CC.$p.$s = $(CC.$p)))
+				$(eval COMPILE.$p.$s = $$(CC.$p.$s) -c $$(CFLAGS.$p.$s))
 			,
-				$(if $(CXX.$s),,$(eval CXX.$s = $(CXX.$p)))
-				$(eval COMPILE.$s = $$(CXX.$s) -c $$(CXXFLAGS.$s))
+				$(if $(CXX.$p.$s),,$(eval CXX.$p.$s = $(CXX.$p)))
+				$(eval COMPILE.$p.$s = $$(CXX.$p.$s) -c $$(CXXFLAGS.$p.$s))
 			)
-			$(eval COMPILE.$s += $$(CPPFLAGS.$s) $$(DEPFLAGS))
-			$(#info COMPILE.$s = $(value COMPILE.$s))
-			$(eval $(OBJDIR)/$s.o: $s | $(OBJDIR); $$(COMPILE.$s) $$< -o $$@)
+			$(eval COMPILE.$p.$s += $$(CPPFLAGS.$p.$s) $$(DEPFLAGS))
+			$(#info COMPILE.$p.$s = $(value COMPILE.$p.$s))
+			$(eval $(OBJDIR)/$p.$s.o: $s | $(OBJDIR); $$(COMPILE.$p.$s) $$< -o $$@)
 		)
 		$(eval $p: $(OBJS.$p); $$(LD.$p) $$(LDFLAGS.$p) $$^ $$(LDLIBS.$p) -o $$@)
 
