@@ -1,6 +1,9 @@
 .SUFFIXES:
 
-PROGS := encrypt decrypt digest hmac kdf rsa-encrypt rsa-decrypt
+PROGS := encrypt decrypt digest hmac kdf
+PROGS += rsa-encrypt rsa-decrypt
+PROGS += ecdsa-sign ecdsa-verify
+
 SRCS += foo.c
 
 CFLAGS ?= -g -O0 -pipe
