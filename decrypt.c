@@ -228,7 +228,7 @@ static int decrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
 
         unsigned char *obuf_ptr = obuf;
         while (obuf_size) {
-            size_t bw = fwrite(obuf, 1, obuf_size, ofp);
+            size_t bw = fwrite(obuf_ptr, 1, obuf_size, ofp);
             if (ferror(ofp))
                 egoto2(E0, errno, "Could not write to output file.");
             obuf_ptr += bw;

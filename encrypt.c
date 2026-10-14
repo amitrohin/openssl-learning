@@ -232,7 +232,7 @@ static int encrypt(FILE *ifp, FILE *ofp, unsigned char const *key) {
 
         unsigned char *obuf_ptr = obuf;
         while (be) {
-            size_t bw = fwrite(obuf, 1, be, ofp);
+            size_t bw = fwrite(obuf_ptr, 1, be, ofp);
             if (ferror(ofp))
                 egoto2(E0, errno, "Could not write to output file.");
             obuf_ptr += bw;
