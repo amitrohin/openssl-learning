@@ -36,10 +36,8 @@ int main(int argc, char *argv[]) {
 
     long salt_len = 0;
     salt = OPENSSL_hexstr2buf(salt_hex, &salt_len);
-    if (!salt) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not parse hex-string of salt.");
-    }
+    if (!salt)
+        ossl_egoto(E0, "Could not parse hex-string of salt.");
     if (calc_kdf_scrypt(pass, salt, salt_len, key, sizeof key))
         goto E0;
 
@@ -64,16 +62,12 @@ static int calc_kdf_scrypt(char const *pass, unsigned char const *salt,
 
     /* #define OSSL_KDF_NAME_SCRYPT "SCRYPT" */
     kdf = EVP_KDF_fetch(NULL, OSSL_KDF_NAME_SCRYPT, NULL);
-    if (!kdf) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_KDF_fetch(): Failed to get KDF (Key Derivation Function).");
-    }
+    if (!kdf)
+        ossl_egoto(E0, "EVP_KDF_fetch(): Failed to get KDF (Key Derivation Function).");
 
     kctx = EVP_KDF_CTX_new(kdf);
-    if (!kctx) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "Could not allocate EVP_KDF_CTX.");
-    }
+    if (!kctx)
+        ossl_egoto(E0, "Could not allocate EVP_KDF_CTX.");
 
     /* The supported parameters are:
      *
@@ -131,10 +125,8 @@ static int calc_kdf_scrypt(char const *pass, unsigned char const *salt,
         },
         { NULL, 0, NULL, 0, 0 }
     };
-    if (EVP_KDF_derive(kctx, key, key_len, params) != 1) {
-        ERR_print_errors_fp(stderr);
-        egoto(E0, "EVP_KDF_derive(): failed.");
-    }
+    if (EVP_KDF_derive(kctx, key, key_len, params) != 1)
+        ossl_egoto(E0, "EVP_KDF_derive(): failed.");
 
     EVP_KDF_free(kdf);
     EVP_KDF_CTX_free(kctx);
